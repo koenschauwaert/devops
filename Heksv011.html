@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Heks v10</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+
+<script>
+ var canvas;
+ var ctx;
+ var pizzas = []; 
+ var fruiten = [];
+ var imgFruit = new Image();
+ imgFruit.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/bananen.png';
+ var imgMan = new Image();
+ imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man01.png';
+ var imgPizza = new Image();
+ imgPizza.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/pizza01small.png';
+ var p = new Pizza();   
+ var m = new Man();
+ var f = new Fruit();
+ var aantalPizzas = 0;
+ var eetSound = new Audio('https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Sounds/eatingSound01.mp3');
+ var backgroundMusic = new Audio('https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Sounds/elevatorMusic.mp3');
+ var booSound = new Audio('https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Sounds/booSound.mp3');
+
+// ontwerp van een Man van 180px breed en een imgMan (een van vele).
+ function Man(){
+    this.breedte = 180;
+    this.hoogte = 180;
+    this.xwaarde = 950;
+    this.ywaarde = 650;           
+    this.teken = function(context){
+      	ctx.drawImage(imgMan,this.xwaarde,this.ywaarde,this.breedte,this.hoogte);
+    };
+ }
+    
+// ontwerp van een Pizza met een random breedte tussen 25px en 70px
+// hoogte = breedte. De plaats waarop 'ie verschijnt is random bovenaan tussen 40px en 1570px (canvas)
+// de hoek is klein en de pizza's draaien licht
+  function Pizza(){ 
+    this.breedte = Math.floor(Math.random()*70+25);
+    this.hoogte = this.breedte;
+    this.xwaarde = Math.floor(Math.random()*1570+40);
+    this.ywaarde = 0;
+    this.geraakt = 0;
+    this.hoek = 0;
+    this.teken = function(context){
+        ctx.save();
+        ctx.translate(this.xwaarde+(this.breedte/2),this.ywaarde+(this.breedte/2));
+        ctx.rotate(this.hoek+=0.005);
+      	ctx.drawImage(imgPizza, 0, 0, this.breedte, this.hoogte);
+        ctx.restore();
+    };
+  }
+
+// ontwerp van een Banaan (fruit) met een random breedte tussen 40px en 70px
+// hoogte = breedte. De plaats waarop 'ie verschijnt is random bovenaan tussen 40px en 1570px (canvas) - zelfde plaats als Pizza
+// de hoek is groter en de bananen draaien intensiever
+    function Fruit(){
+    this.breedte = Math.floor(Math.random()*70+40);
+    this.hoogte = this.breedte;
+    this.xwaarde = Math.floor(Math.random()*1570+40);
+    this.ywaarde = 0;
+    this.geraakt = 0;
+    this.hoek = Math.floor(Math.random()*5-5);
+    this.teken = function(context){
+        ctx.save();
+        ctx.translate(this.xwaarde+(this.breedte/2),this.ywaarde+(this.breedte/2));
+        ctx.rotate(this.hoek-=0.01);
+        ctx.drawImage(imgFruit, 0, 0, this.breedte, this.hoogte);
+        ctx.restore();
+    };
+  }
+
+ // wordt uitgevoerd bij start (zie hieronder $(function(){Start();}) )
+ // declareert het canvas en de context (ctx) die getekend moet worden
+ // pizzas en fruiten (arrays) worden aangemaakt bij het begin
+ // muis cursor is gekoppeld aan m.ywaarde en m.xwaarde (tot ongeveer halverwege het scherm in y richting)
+ // de man volgt dus de muis cursor
+ // achtergrond muziek wordt gespeeld en de Animate() functie wordt gestart
+  function Start(){
+    canvas = document.getElementById("mycanvas");
+    ctx = canvas.getContext("2d");
+
+    for (var i = 0; i < 5;i++){
+      fruiten.push(new Fruit());
+      pizzas.push(new Pizza());
+    }
+
+
+    $("canvas").mousemove(function(arg){
+      if((!(arg.pageY > canvas.height-m.hoogte))&&(!(arg.pageY < canvas.height/2.3))){
+        m.ywaarde = arg.pageY;
+      }
+                   
+      if((!(arg.pageX > canvas.width-m.breedte))&&(!(arg.pageX < 0))){
+        m.xwaarde = arg.pageX;
+      }
+    });
+    
+    backgroundMusic.play();
+
+    Animate();
+  };
+
+// deze functie zorgt ervoor dat Start() wordt uitgevoerd bij laden van pagina
+ $(function(){
+    Start();
+  })
+
+// deze functie loopt constant, waardoor het canvas steeds (elke 12ms) geupdate wordt (leeg en tekenen)
+// als de man de pizza raakt, komen er punten (aantalPizzas) bij. 
+// als hij een banaan raakt, gaan er (meer: /2000 ipv /3000) punten af.
+// als een pizza of fruit wordt geraakt, wordt er random een getal tussen 1 en 2 gemaakt en wordt er ofwel een banaan of pizza gespawned
+// als de man verzadigd is (100% vet), dan is het spel klaar. 
+// in elke stage tussen 0% en 100% verandert de imgMan van dikte
+// er wordt een counter bijgehouden met een % van vet
+// daarnaast worden er af en toe nog random bananen en pizzas gespawned, omdat anders het spel zou stoppen als je niks raakt
+  function Animate(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for(var i = 0; i < pizzas.length && i < fruiten.length; i++){
+      m.teken(ctx);
+      pizzas[i].ywaarde += ((pizzas[i].ywaarde)*(pizzas[i].breedte))/5000+1;
+      fruiten[i].ywaarde += ((fruiten[i].ywaarde)*(fruiten[i].breedte))/8000+1;
+
+      if((pizzas[i].ywaarde >= m.ywaarde-pizzas[i].breedte) && (pizzas[i].ywaarde <= m.ywaarde+m.hoogte+pizzas[i].breedte) && (pizzas[i].xwaarde <= m.xwaarde+m.breedte+(0.5*m.breedte)) && (pizzas[i].xwaarde >= m.xwaarde)){
+        pizzas[i].geraakt = 1;
+        aantalPizzas += ((pizzas[i].breedte*pizzas[i].breedte)/3000);
+        eetSound.play();
+      }
+
+      else if((fruiten[i].ywaarde >= (m.ywaarde-fruiten[i].breedte)+30) && (fruiten[i].ywaarde <= m.ywaarde+m.hoogte+fruiten[i].breedte) && (fruiten[i].xwaarde <= m.xwaarde+(0.5*m.breedte)) && (fruiten[i].xwaarde >= m.xwaarde)){
+        fruiten[i].geraakt = 1;
+        aantalPizzas -= ((fruiten[i].breedte*fruiten[i].breedte)/2000);
+        booSound.play();
+      }
+
+      if(pizzas[i].geraakt == 1 || fruiten[i].geraakt == 1){
+        var respawn = (Math.floor(Math.random()*2+1));
+        if(respawn == 1)
+          pizzas[i] = new Pizza();
+        else
+          fruiten[i] = new Fruit();
+      }
+
+      else{
+        pizzas[i].teken(ctx);
+        fruiten[i].teken(ctx);
+      }
+
+      if (aantalPizzas == 100){
+        pizzas[i].geraakt = 1;
+        extraPizza = 0;
+      }
+
+      else if (aantalPizzas > 99){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/youwin.png';
+        m.hoogte = 118;
+        m.breedte = 510;
+        aantalPizzas = 100;
+      }
+
+      else if (aantalPizzas > 85){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man08.png';
+      }
+
+      else if (aantalPizzas > 72){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man07.png';
+      }
+
+      else if (aantalPizzas > 66){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man06.png';
+      }
+
+      else if (aantalPizzas > 53){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man05.png';
+      }
+
+      else if (aantalPizzas > 40){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man04.png';
+      }
+
+      else if (aantalPizzas > 23){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man03.png';
+      }
+
+      else if (aantalPizzas > 12){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man02.png';
+      }
+
+      else if (aantalPizzas > 0){
+        imgMan.src = 'https://dl.dropboxusercontent.com/u/14461665/Websites/AP/Jaar%201/SEM2/Labo04%20-%20StarCatcher/Images/man01.png';
+      }
+
+      else{
+        aantalPizzas = 0;
+      }
+            
+      document.getElementById("counter").innerHTML = Math.floor(aantalPizzas) + " %";
+
+    }
+
+ var extraPizza = (Math.floor(Math.random()*500+1));
+	if (extraPizza < 3){
+    	pizzas[i] = new Pizza();
+    }
+
+  else if (extraPizza > 450){
+      fruiten[i] = new Fruit();
+    }
+
+      setTimeout(Animate, 12);  
+  } 
+
+</script>
+
+
+<style>
+/* hier wordt het canvas gedeclareerd en moet de cursor niet in beeld zijn 
+ daarnaast wordt de score gestyled en verschijnt de youwin bij 100% */
+  canvas{
+    background-image: url("Images/background01.jpg");
+    background-size: 1660px 920px;
+    background-repeat: no-repeat;
+    cursor: none;
+  }
+
+  .score{
+    font-size: 3em;
+    float: right;
+    top: 0px;
+    width: 210px;
+    height: 920px;
+    text-align: center;
+  }
+
+  .imgPizza{
+    z-index: 20;
+  }
+
+  .imgFruit{
+    z-index: 19;
+  }
+
+  .imgMan{
+    z-index: 1;
+  }
+
+  #youwin{
+    visibility: hidden;
+    z-index: 10;
+  }
+
+  .score{
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none;   /* Chrome/Safari/Opera */
+  -moz-user-select: none;      /* Firefox */
+  -ms-user-select: none;       /* Internet Explorer/Edge */
+  user-select: none;           /* Non-prefixed version, currently
+                                  not supported by any browser */
+}
+
+</style>
+
+</head>
+<body>
+<!-- de breedte en hoogte van het canvas worden hier gedeclareerd, evenals de border
+ ook de score staat er naast
+ de image van youwin wordt hier ook aangegeven -->     
+  <canvas id="mycanvas" width="1660" height="920" style="border:4px solid #000000"></canvas>
+
+  <div class="score" width="200" height="920" style="border:4px solid #000000">
+    <p>FAT %</p>
+    <p id="counter"></p>
+  </div>
+
+  <div id="youwin">
+    <img src="Images/youwin.png">
+  </div>
+
+</body>
+
+</html>
